@@ -17,13 +17,13 @@ function App() {
   const [_, setPrevTime] = useState(null);
   const [dataLimit, setDataLimit] = useState(10);
 
-  // New State: Stores history of runs to calculate averages
-  // Structure: { "Bubble Sort": [{time, count}, ...], "Quick Sort": [...] }
-  const [runHistory, setRunHistory] = useState({
-    [algorithms.BUBBLE]: [],
-    [algorithms.QUICK]: [],
-    [algorithms.MERGE]: []
-  });
+const [runHistory, setRunHistory] = useState({
+  [algorithms.BUBBLE]: [],
+  [algorithms.INSERTION]: [],
+  [algorithms.QUICK]: [],
+  [algorithms.MERGE]: [],
+  [algorithms.COUNTING]: [], // ✅ ADD THIS
+});
 
   const recordRun = (algo, time, count) => {
     setRunHistory(prev => ({
@@ -84,6 +84,7 @@ function App() {
   const triggerVisualSort = async (field) => {
     setPrevTime(stats.time);
     setIsSorting(true);
+
     await handleStepSort(
       items,
       selectedAlgo,
@@ -94,11 +95,13 @@ function App() {
         setItems(nextItems);
         setActiveIndices(highlightIds);
         setStats({ count: nextCount, time: nextTime });
+
         if (highlightIds.length === 0 && nextCount > 0) {
-           recordRun(selectedAlgo, nextTime, nextCount);
+          recordRun(selectedAlgo, nextTime, nextCount);
         }
       }
     );
+
     setIsSorting(false);
   };
 
@@ -115,7 +118,6 @@ function App() {
     <main className='min-h-screen px-4 py-6 sm:px-8 bg-gray-50'>
       <section className='mx-auto w-full max-w-6xl rounded-2xl border bg-white p-4 shadow-md sm:p-6'>
         
-        {/* Brand Header */}
         <header className='mb-5 rounded-xl bg-[#6A8D73] px-5 py-4 text-white flex justify-between items-center'>
           <div>
             <p className='text-xs font-medium tracking-wider text-green-100 uppercase'>Inventory System</p>
