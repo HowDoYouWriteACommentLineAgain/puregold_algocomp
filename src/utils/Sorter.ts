@@ -1,34 +1,6 @@
-// src/utils/sorter.js
-
 import { items } from "./interfaces";
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-export const handleStepSort = async (data, type, field, speed, updateCallback) => {
-  let arr = [...data];
-  let comparisons = 0;
-  const startTime = performance.now();
-
-  if (type === "Bubble Sort") {
-    for (let i = 0; i < arr.length; i++) {
-      for (let j = 0; j < arr.length - i - 1; j++) {
-        comparisons++;
-        
-        // Use the dynamic speed for the comparison pause
-        updateCallback([...arr], [j, j + 1], comparisons, (performance.now() - startTime).toFixed(2));
-        await sleep(speed); 
-
-        if (arr[j][field] > arr[j + 1][field]) {
-          [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
-          updateCallback([...arr], [j, j + 1], comparisons, (performance.now() - startTime).toFixed(2));
-          // Use a fraction of the speed for the swap animation
-          await sleep(speed / 2); 
-        }
-      }
-    }
-    updateCallback([...arr], [], comparisons, (performance.now() - startTime).toFixed(2));
-  }
-};
 
 export const algorithms = {
   BUBBLE: "Bubble Sort",
@@ -38,84 +10,159 @@ export const algorithms = {
 
 export const complexityMap = {
   [algorithms.BUBBLE]: "O(n²)",
-  [algorithms.QUICK]: "O(n log n)", // Average
+  [algorithms.QUICK]: "O(n log n)",
   [algorithms.MERGE]: "O(n log n)",
 };
 
-export const handleSort = (data:items[], type:string, field:string) => {
-  const arr = [...data] as items[];
+// Add this to your Sorter.js
+export const handleSort = (data, type, field, direction) => {
+  const startTime = performance.now();
+  let comparisons = 0;
+  let arr = [...data];
+
+  // Logic for the instant sort
+  arr.sort((a, b) => {
+    comparisons++;
+    const valA = a[field];
+    const valB = b[field];
+
+    if (direction === 'asc') {
+      return valA > valB ? 1 : -1;
+    } else {
+      return valA < valB ? 1 : -1;
+    }
+  });
+
+  const endTime = performance.now();
+
+  return {
+    sortedData: arr,
+    time: (endTime - startTime).toFixed(4), // High precision for instant sorts
+    count: comparisons
+  };
+};
+
+export const handleStepSort = async (data:items[], type, field, speed, direction, updateCallback) => {
+  let arr = [...data];
   let comparisons = 0;
   const startTime = performance.now();
+
+  const getTime = () => (performance.now() - startTime).toFixed(2);
 
   // --- BUBBLE SORT ---
   if (type === algorithms.BUBBLE) {
     for (let i = 0; i < arr.length; i++) {
       for (let j = 0; j < arr.length - i - 1; j++) {
         comparisons++;
-        if (arr[j][field] > arr[j + 1][field]) {
+        
+        // Highlight comparison
+        updateCallback([...arr], [j, j + 1], comparisons, getTime());
+        await sleep(speed);
+
+        const shouldSwap = direction === 'asc' 
+          ? arr[j][field] > arr[j + 1][field] 
+          : arr[j][field] < arr[j + 1][field];
+
+        if (shouldSwap) {
           [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+          updateCallback([...arr], [j, j + 1], comparisons, getTime());
+          await sleep(speed / 2);
         }
       }
     }
   }
 
-  // --- QUICK SORT ---
-  else if (type === algorithms.QUICK) {
-    const quickSort = (start:number, end:number) => {
-      if (start >= end) return;
-      
-      // Partitioning logic
-      let pivotValue = arr[end][field];
-      let pivotIndex = start;
-      
-      for (let i = start; i < end; i++) {
+  // --- QUICK SORT (Lomuto Partition) ---
+  if (type === algorithms.QUICK) {
+    const quickSort = async (low, high) => {
+      if (low < high) {
+        let pivotIndex = await partition(low, high);
+        await quickSort(low, pivotIndex - 1);
+        await quickSort(pivotIndex + 1, high);
+      }
+    };
+
+    const partition = async (low, high) => {
+      let pivotValue = arr[high][field];
+      let i = low - 1;
+
+      for (let j = low; j < high; j++) {
         comparisons++;
-        if (arr[i][field] < pivotValue) {
-          [arr[i], arr[pivotIndex]] = [arr[pivotIndex], arr[i]];
-          pivotIndex++;
+        updateCallback([...arr], [j, high], comparisons, getTime());
+        await sleep(speed);
+
+        const shouldSwap = direction === 'asc' 
+          ? arr[j][field] < pivotValue 
+          : arr[j][field] > pivotValue;
+
+        if (shouldSwap) {
+          i++;
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+          updateCallback([...arr], [i, j], comparisons, getTime());
+          await sleep(speed / 2);
         }
       }
-      [arr[pivotIndex], arr[end]] = [arr[end], arr[pivotIndex]];
-      
-      quickSort(start, pivotIndex - 1);
-      quickSort(pivotIndex + 1, end);
+      [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
+      updateCallback([...arr], [i + 1, high], comparisons, getTime());
+      return i + 1;
     };
-    quickSort(0, arr.length - 1);
+
+    await quickSort(0, arr.length - 1);
   }
 
-  // --- MERGE SORT ---
-  else if (type === algorithms.MERGE) {
-    const merge = (left, right) => {
-      let result = [];
-      while (left.length && right.length) {
+  // --- MERGE SORT (In-Place / Block Merge) ---
+  if (type === algorithms.MERGE) {
+    const merge = async (l, m, r) => {
+      let start2 = m + 1;
+
+      // Check if already sorted
+      const alreadySorted = direction === 'asc' 
+        ? arr[m][field] <= arr[start2][field] 
+        : arr[m][field] >= arr[start2][field];
+
+      if (alreadySorted) return;
+
+      while (l <= m && start2 <= r) {
         comparisons++;
-        if (left[0][field] < right[0][field]) {
-          result.push(left.shift());
+        updateCallback([...arr], [l, start2], comparisons, getTime());
+        await sleep(speed);
+
+        const isLeftCorrect = direction === 'asc' 
+          ? arr[l][field] <= arr[start2][field] 
+          : arr[l][field] >= arr[start2][field];
+
+        if (isLeftCorrect) {
+          l++;
         } else {
-          result.push(right.shift());
+          let value = arr[start2];
+          let index = start2;
+
+          while (index !== l) {
+            arr[index] = arr[index - 1];
+            index--;
+          }
+          arr[l] = value;
+
+          updateCallback([...arr], [l], comparisons, getTime());
+          await sleep(speed / 2);
+
+          l++; m++; start2++;
         }
       }
-      return [...result, ...left, ...right];
     };
 
-    const mergeSort = (array) => {
-      if (array.length <= 1) return array;
-      const mid = Math.floor(array.length / 2);
-      const left = mergeSort(array.slice(0, mid));
-      const right = mergeSort(array.slice(mid));
-      return merge(left, right);
+    const mSort = async (l, r) => {
+      if (l < r) {
+        let m = Math.floor(l + (r - l) / 2);
+        await mSort(l, m);
+        await mSort(m + 1, r);
+        await merge(l, m, r);
+      }
     };
-    
-    const sorted = mergeSort(arr);
-    const endTime = performance.now();
-    return { sortedData: sorted, time: (endTime - startTime).toFixed(4), count: comparisons };
+
+    await mSort(0, arr.length - 1);
   }
 
-  const endTime = performance.now();
-  return {
-    sortedData: arr,
-    time: (endTime - startTime).toFixed(4),
-    count: comparisons,
-  };
+  // Final cleanup: Clear highlights
+  updateCallback([...arr], [], comparisons, getTime());
 };
-

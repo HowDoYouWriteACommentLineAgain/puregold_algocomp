@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { inventoryData } from "./data/inventoryData";
-import { handleSort, algorithms, complexityMap, handleStepSort } from "./utils/Sorter";
+import { algorithms, complexityMap, handleSort, handleStepSort } from "./utils/Sorter";
+import { Speeds } from "./utils/Speeds";
 
 function App() {
   const [items, setItems] = useState(inventoryData);
@@ -8,25 +9,68 @@ function App() {
   const [stats, setStats] = useState({ time: 0, count: 0 });
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isSorting, setIsSorting] = useState(false);
-  const [activeIndices, setActiveIndices] = useState([]);
+  const [activeIndices, setActiveIndices] = useState([]); 
+  const [stagedColumn, setStagedColumn] = useState('price'); // Default staged column
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [sortSpeed, setSortSpeed] = useState(Speeds[0].value);
 
-  const startSlowSort = async (field) => {
+  // INSTANT SORT (Production Mode)
+  const triggerInstantSort = (field) => {
+    // We call the original handleSort that returns the final result immediately
+    const result = handleSort(items, selectedAlgo, field, sortConfig.direction);
+    setItems(result.sortedData);
+    setStats({ time: result.time, count: result.count });
+    setSortConfig(prev => ({ ...prev, key: field }));
+  };
+
+  // VISUALIZER SORT (Presentation Mode)
+  const triggerVisualSort = async (field) => {
     setIsSorting(true);
-    await handleStepSort(items, selectedAlgo, field, sortSpeed, (nextItems, highlightIds, nextCount, nextTime) => {
-      setItems(nextItems);
-      setActiveIndices(highlightIds);
-      setStats({ count: nextCount, time: nextTime });
-    });
+    await handleStepSort(
+      items, 
+      selectedAlgo, 
+      field, 
+      sortSpeed, 
+      sortConfig.direction, 
+      (nextItems, highlightIds, nextCount, nextTime) => {
+        setItems(nextItems);
+        setActiveIndices(highlightIds);
+        setStats({ count: nextCount, time: nextTime });
+      }
+    );
     setIsSorting(false);
   };
 
-  const triggerSort = (field) => {
-    const result = handleSort(items, selectedAlgo, field);
-    setItems(result.sortedData);
-    setStats({ time: result.time, count: result.count });
+  const startSlowSort = async (field) => {
+    setIsSorting(true);
+    // Pass sortConfig.direction as the 5th argument
+    await handleStepSort(
+      items, 
+      selectedAlgo, 
+      field, 
+      sortSpeed, 
+      sortConfig.direction, 
+      (nextItems, highlightIds, nextCount, nextTime) => {
+        setItems(nextItems);
+        setActiveIndices(highlightIds);
+        setStats({ count: nextCount, time: nextTime });
+      }
+    );
+    setIsSorting(false);
   };
 
-  const [sortSpeed, setSortSpeed] = useState(1500);
+  const toggleDirection = () => {
+    setSortConfig(prev => ({
+      ...prev,
+      direction: prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+    // const handleExecute = () => {
+    //   // If you want the slow visualizer:
+    //   startSlowSort(stagedColumn, sortConfig.direction); 
+    //   // Note: You'll need to update Sorter.js to handle the direction string!
+    // };
 
   return (
     <main className='min-h-screen px-4 py-6 sm:px-8 bg-gray-50'>
@@ -85,9 +129,9 @@ function App() {
                   {Object.values(algorithms).map((algo) => (
                     <button
                       key={algo}
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSelectedAlgo(algo);
-                        setIsControlsVisible(false);
                       }}
                       className={`px-4 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 ${selectedAlgo === algo
                           ? 'bg-[#6A8D73] text-white shadow-md'
@@ -108,7 +152,7 @@ function App() {
                     </div>
 
                     <div className="flex rounded-lg bg-gray-100 p-1">
-                      {[{ label: "Slow", value: 1500 }, { label: "Normal", value: 500 }, { label: "Fast", value: 100 }].map((opt) => (
+                      {Speeds.map((opt) => (
                         <button
                           key={opt.label}
                           onClick={() => setSortSpeed(opt.value)}
@@ -150,16 +194,89 @@ function App() {
 
         </section>
 
+        <div className="mb-4 flex flex-col gap-4 rounded-xl border border-[#6A8D73]/30 bg-[#f8fbf9] p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#6A8D73]">Targeting</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold capitalize text-[#36513f]">{stagedColumn}</span>
+                <button 
+                  onClick={toggleDirection}
+                  className="rounded bg-white px-2 py-0.5 text-[10px] font-bold border border-[#6A8D73] text-[#6A8D73] hover:bg-[#6A8D73] hover:text-white transition-colors"
+                >
+                  {sortConfig.direction === 'asc' ? "ASC ↑" : "DESC ↓"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* INSTANT SORT - Use this for "Standard" use */}
+            <button
+              onClick={() => triggerInstantSort(stagedColumn)}
+              disabled={isSorting}
+              className="flex-1 sm:flex-none rounded-lg bg-[#F9DB6D] px-5 py-2.5 text-xs font-black uppercase text-[#36513f] shadow-sm hover:bg-[#f2cc41] active:scale-95 disabled:opacity-50 transition-all"
+            >
+              Instant Sort
+            </button>
+
+            {/* VISUALIZER - Use this for the Demo */}
+            <button
+              onClick={() => triggerVisualSort(stagedColumn)}
+              disabled={isSorting}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-xs font-black uppercase transition-all shadow-md ${
+                isSorting 
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
+                  : "bg-[#6A8D73] text-white hover:bg-[#4d6a58] active:scale-95 ring-2 ring-[#6A8D73] ring-offset-2"
+              }`}
+            >
+              {isSorting ? "Visualizing..." : "Run Visualizer"}
+            </button>
+          </div>
+        </div>
+
         {/* Inventory Table */}
         <section className='overflow-x-auto rounded-xl border border-[#6A8D73]'>
           <table className='min-w-full text-sm'>
             <thead>
               <tr className='bg-[#F9DB6D] text-[#243c2f]'>
-                <th className='px-4 py-3 text-left'>SKU</th>
-                <th className='px-4 py-3 text-left cursor-pointer hover:underline' onClick={() => triggerSort('name')}>Item Name ↕</th>
-                <th className='px-4 py-3 text-left'>Category</th>
-                <th className='px-4 py-3 text-left cursor-pointer hover:underline' onClick={() => triggerSort('stock')}>Stock ↕</th>
-                <th className='px-4 py-3 text-left cursor-pointer hover:underline' onClick={() => triggerSort('price')}>Price ↕</th>
+                <th className='px-4 py-3 text-left text-[10px] font-black uppercase tracking-wider opacity-60'>SKU</th>
+                {[
+                  { label: 'Item Name', key: 'name' },
+                  { label: 'Category', key: 'category' },
+                  { label: 'Stock', key: 'stock' },
+                  { label: 'Price', key: 'price' }
+                ].map((col) => {
+                  const isStaged = stagedColumn === col.key;
+                  return (
+                    <th 
+                      key={col.key}
+                      className={`px-4 py-3 text-left cursor-pointer select-none transition-all ${
+                        isStaged 
+                          ? 'bg-[#f2cc41] shadow-[inset_0_-3px_0_0_#36513f]' 
+                          : 'hover:bg-[#f2cc41]/50'
+                      }`}
+                      onClick={() => {
+                          if (!isSorting) {
+                            setStagedColumn(col.key)
+                            toggleDirection()
+                          }
+                        }
+                      }
+                    >
+                      <div className="flex items-center gap-1">
+                        <span className="font-bold">{col.label}</span>
+                        <span className="text-sm">
+                          {isStaged ? (
+                            sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
+                          ) : (
+                            <span className="opacity-20"> ↕</span>
+                          )}
+                        </span>
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
