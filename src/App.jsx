@@ -11,7 +11,7 @@ function App() {
             <p className='text-xs font-medium tracking-wider text-green-100'>
               INVENTORY SYSTEM
             </p>
-            <h1 className='text-2xl font-semibold'>Stock Search Dashboard</h1>
+            <h1 className='text-2xl font-semibold'>PUREGOLD DASHBOARD</h1>
           </div>
         </header>
 
