@@ -15,6 +15,7 @@ function App() {
           </div>
         </header>
 
+        {/* search and results */}
         <section className='mb-4 rounded-xl border border-[#6A8D73] bg-white p-4'>
           <label
             htmlFor='inventory-search'
@@ -38,6 +39,7 @@ function App() {
           </div>
         </section>
 
+        {/* inventory table */}
         <section className='overflow-x-auto rounded-xl border border-[#6A8D73] bg-white'>
           <table className='min-w-full border-collapse text-sm'>
             <thead>
