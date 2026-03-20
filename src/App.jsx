@@ -10,40 +10,21 @@ function App() {
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isSorting, setIsSorting] = useState(false);
   const [activeIndices, setActiveIndices] = useState([]); 
-  const [stagedColumn, setStagedColumn] = useState('price'); // Default staged column
+  const [stagedColumn, setStagedColumn] = useState('price'); 
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [sortSpeed, setSortSpeed] = useState(Speeds[0].value);
 
-  // INSTANT SORT (Production Mode)
+  // LOGIC HANDLERS
   const triggerInstantSort = (field) => {
-    // We call the original handleSort that returns the final result immediately
     const result = handleSort(items, selectedAlgo, field, sortConfig.direction);
     setItems(result.sortedData);
     setStats({ time: result.time, count: result.count });
     setSortConfig(prev => ({ ...prev, key: field }));
+    setActiveIndices([]);
   };
 
-  // VISUALIZER SORT (Presentation Mode)
   const triggerVisualSort = async (field) => {
     setIsSorting(true);
-    await handleStepSort(
-      items, 
-      selectedAlgo, 
-      field, 
-      sortSpeed, 
-      sortConfig.direction, 
-      (nextItems, highlightIds, nextCount, nextTime) => {
-        setItems(nextItems);
-        setActiveIndices(highlightIds);
-        setStats({ count: nextCount, time: nextTime });
-      }
-    );
-    setIsSorting(false);
-  };
-
-  const startSlowSort = async (field) => {
-    setIsSorting(true);
-    // Pass sortConfig.direction as the 5th argument
     await handleStepSort(
       items, 
       selectedAlgo, 
@@ -66,99 +47,74 @@ function App() {
     }));
   };
 
-    // const handleExecute = () => {
-    //   // If you want the slow visualizer:
-    //   startSlowSort(stagedColumn, sortConfig.direction); 
-    //   // Note: You'll need to update Sorter.js to handle the direction string!
-    // };
-
   return (
     <main className='min-h-screen px-4 py-6 sm:px-8 bg-gray-50'>
       <section className='mx-auto w-full max-w-6xl rounded-2xl border bg-white p-4 shadow-md sm:p-6'>
 
-        {/* Header and Brand */}
+        {/* Brand Header */}
         <header className='mb-5 rounded-xl bg-[#6A8D73] px-5 py-4 text-white flex justify-between items-center'>
           <div>
-            <p className='text-xs font-medium tracking-wider text-green-100'>INVENTORY SYSTEM</p>
+            <p className='text-xs font-medium tracking-wider text-green-100 uppercase'>Inventory System</p>
             <h1 className='text-2xl font-semibold'>PUREGOLD DASHBOARD</h1>
+          </div>
+          <div className="text-right hidden sm:block">
+             <p className="text-[10px] font-black opacity-60 uppercase">System Status</p>
+             <p className="text-xs font-bold text-green-200">{isSorting ? "● PROCESSING" : "● READY"}</p>
           </div>
         </header>
 
-        {/* Algorithm Selection & Stats Stack */}
-        <section className='mb-4 flex flex-col gap-4'>
-
-
-          {/* 1. SELECTION PANEL (Vertical Stack) */}
+        {/* COMMAND CENTER */}
+        <section className='mb-6 flex flex-col gap-4'>
           <div className='rounded-xl border border-[#6A8D73] bg-white p-4 shadow-sm transition-all'>
+            
+            {/* Top Row: Algorithm Info & Toggle */}
             <div className="flex items-center justify-between mb-2">
-              <label className='text-sm font-semibold text-[#36513f]'>
-                Select Algorithm: <span className="text-[#6A8D73] font-mono">{selectedAlgo}</span>
-              </label>
-
-              <div className="flex items-center gap-4"> {/* Grouped complexity and button */}
-                <div className="text-right">
-                  <span className="text-xs opacity-80">Complexity: </span>
-                  <span className="font-mono text-sm">{complexityMap[selectedAlgo]}</span>
-                </div>
-
-                <button
-                  onClick={() => setIsControlsVisible(!isControlsVisible)}
-                  className="group flex items-center gap-2 rounded-full bg-[#6A8D73]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#6A8D73] transition-all hover:bg-[#6A8D73] hover:text-white active:scale-95"
-                >
-                  <span>{isControlsVisible ? "Hide Options" : "Change Algo"}</span>
-                  <svg
-                    className={`h-3 w-3 transition-transform duration-300 ${isControlsVisible ? 'rotate-180' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+              <div className="flex flex-col">
+                <label className='text-[10px] font-black uppercase tracking-widest text-[#6A8D73]'>Selected Logic</label>
+                <p className="text-sm font-bold text-[#36513f]">{selectedAlgo} <span className="ml-2 font-mono text-xs font-medium opacity-50">({complexityMap[selectedAlgo]})</span></p>
               </div>
+
+              <button
+                onClick={() => setIsControlsVisible(!isControlsVisible)}
+                className="group flex items-center gap-2 rounded-full bg-[#6A8D73]/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-[#6A8D73] transition-all hover:bg-[#6A8D73] hover:text-white active:scale-95"
+              >
+                <span>{isControlsVisible ? "Close Settings" : "Adjust Strategy"}</span>
+                <svg className={`h-3 w-3 transition-transform duration-300 ${isControlsVisible ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </div>
 
-            {/* FIXED HEIGHT WRAPPER: This prevents the 'cheating' jump */}
-            <div className={`grid transition-all duration-500 ease-in-out ${isControlsVisible
-                ? 'grid-rows-[1fr] opacity-100 mt-4 min-h-[220px]' // Set a min-height that fits your buttons + visualizer
-                : 'grid-rows-[0fr] opacity-0 mt-0 min-h-0'
-              }`}>
-              <div className="overflow-hidden">
-                {/* Algorithm Buttons */}
-                <div className="flex flex-wrap gap-2 pb-4">
+            {/* Collapsible Settings Grid */}
+            <div className={`grid transition-all duration-500 ease-in-out ${isControlsVisible ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0'}`}>
+              <div className="overflow-hidden space-y-4">
+                
+                {/* 1. Algorithm Buttons */}
+                <div className="flex flex-wrap gap-2 pt-2">
                   {Object.values(algorithms).map((algo) => (
                     <button
                       key={algo}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedAlgo(algo);
-                      }}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 ${selectedAlgo === algo
-                          ? 'bg-[#6A8D73] text-white shadow-md'
-                          : 'bg-gray-100 text-[#36513f] hover:bg-[#dbe6df]'
-                        }`}
+                      disabled={isSorting}
+                      onClick={(e) => { e.stopPropagation(); setSelectedAlgo(algo); }}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 ${selectedAlgo === algo ? 'bg-[#6A8D73] text-white shadow-md' : 'bg-gray-100 text-[#36513f] hover:bg-[#dbe6df]'}`}
                     >
                       {algo}
                     </button>
                   ))}
                 </div>
 
-                {/* Speed & Visualizer Controls */}
-                <div className="flex flex-col gap-3 rounded-xl border-2 border-dashed border-[#6A8D73]/20 bg-white/50 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-[#6A8D73]">Simulation Speed</span>
-                      <span className="text-xs text-gray-500 italic">Current: {sortSpeed}ms / step</span>
-                    </div>
-
-                    <div className="flex rounded-lg bg-gray-100 p-1">
+                {/* 2. Parameters (Speed & Target) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 rounded-xl border-2 border-dashed border-[#6A8D73]/20 bg-white/50 p-4">
+                  {/* Speed Selector */}
+                  <div className="flex items-center justify-between bg-white rounded-lg p-2 border border-gray-100">
+                    <span className="text-[10px] font-black uppercase text-[#6A8D73] ml-2">Visual Speed</span>
+                    <div className="flex rounded-md bg-gray-100 p-1">
                       {Speeds.map((opt) => (
                         <button
                           key={opt.label}
                           onClick={() => setSortSpeed(opt.value)}
                           disabled={isSorting}
-                          className={`rounded-md px-3 py-1 text-[10px] font-bold uppercase transition-all ${sortSpeed === opt.value ? "bg-white text-[#6A8D73] shadow-sm" : "text-gray-400 hover:text-[#6A8D73]"
-                            } ${isSorting ? "opacity-50 cursor-not-allowed" : ""}`}
+                          className={`rounded px-3 py-1 text-[10px] font-bold uppercase transition-all ${sortSpeed === opt.value ? "bg-white text-[#6A8D73] shadow-sm" : "text-gray-400 hover:text-[#6A8D73]"}`}
                         >
                           {opt.label}
                         </button>
@@ -166,20 +122,41 @@ function App() {
                     </div>
                   </div>
 
+                  {/* Direction & Targeting */}
+                  <div className="flex items-center justify-between bg-white rounded-lg p-2 border border-gray-100">
+                    <span className="text-[10px] font-black uppercase text-[#6A8D73] ml-2">Direction</span>
+                    <button 
+                      onClick={toggleDirection}
+                      disabled={isSorting}
+                      className="rounded-md bg-[#6A8D73] px-4 py-1.5 text-[10px] font-black text-white hover:bg-[#4d6a58] transition-all"
+                    >
+                      {stagedColumn.toUpperCase()} {sortConfig.direction === 'asc' ? "↑ ASC" : "↓ DESC"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Action Buttons */}
+                <div className="flex gap-2">
                   <button
-                    onClick={() => startSlowSort('price')}
+                    onClick={() => triggerInstantSort(stagedColumn)}
                     disabled={isSorting}
-                    className={`w-full flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-black uppercase tracking-tighter transition-all ${isSorting ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-[#F9DB6D] text-[#36513f] hover:bg-[#f2cc41] active:scale-95 shadow-md"
-                      }`}
+                    className="flex-1 rounded-lg bg-[#F9DB6D] py-3 text-xs font-black uppercase text-[#36513f] shadow-sm hover:bg-[#f2cc41] active:scale-95 disabled:opacity-50 transition-all"
                   >
-                    {isSorting ? "Sorting..." : "Run Visualizer"}
+                    Sort 
+                  </button>
+                  <button
+                    onClick={() => triggerVisualSort(stagedColumn)}
+                    disabled={isSorting}
+                    className={`flex-[2] flex items-center justify-center gap-2 rounded-lg py-3 text-xs font-black uppercase transition-all shadow-md ${isSorting ? "bg-gray-100 text-gray-400" : "bg-[#6A8D73] text-white hover:bg-[#4d6a58] active:scale-95"}`}
+                  >
+                    {isSorting ? "Visualizing Algorithm..." : "▶ Run Visualizer"}
                   </button>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 2. STATS PANEL (Always Visible, stacked below) */}
+          {/* STATS PANEL (Always Visible) */}
           <div className='flex items-center justify-around rounded-xl border border-[#F9DB6D] bg-[#fffdf5] p-4 shadow-sm'>
             <div className="text-center">
               <p className="text-[10px] font-bold uppercase text-gray-400">Execution Time</p>
@@ -191,49 +168,7 @@ function App() {
               <p className="text-lg font-mono font-bold text-[#36513f]">{stats.count.toLocaleString()}</p>
             </div>
           </div>
-
         </section>
-
-        <div className="mb-4 flex flex-col gap-4 rounded-xl border border-[#6A8D73]/30 bg-[#f8fbf9] p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#6A8D73]">Targeting</span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold capitalize text-[#36513f]">{stagedColumn}</span>
-                <button 
-                  onClick={toggleDirection}
-                  className="rounded bg-white px-2 py-0.5 text-[10px] font-bold border border-[#6A8D73] text-[#6A8D73] hover:bg-[#6A8D73] hover:text-white transition-colors"
-                >
-                  {sortConfig.direction === 'asc' ? "ASC ↑" : "DESC ↓"}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* INSTANT SORT - Use this for "Standard" use */}
-            <button
-              onClick={() => triggerInstantSort(stagedColumn)}
-              disabled={isSorting}
-              className="flex-1 sm:flex-none rounded-lg bg-[#F9DB6D] px-5 py-2.5 text-xs font-black uppercase text-[#36513f] shadow-sm hover:bg-[#f2cc41] active:scale-95 disabled:opacity-50 transition-all"
-            >
-              Instant Sort
-            </button>
-
-            {/* VISUALIZER - Use this for the Demo */}
-            <button
-              onClick={() => triggerVisualSort(stagedColumn)}
-              disabled={isSorting}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-xs font-black uppercase transition-all shadow-md ${
-                isSorting 
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
-                  : "bg-[#6A8D73] text-white hover:bg-[#4d6a58] active:scale-95 ring-2 ring-[#6A8D73] ring-offset-2"
-              }`}
-            >
-              {isSorting ? "Visualizing..." : "Run Visualizer"}
-            </button>
-          </div>
-        </div>
 
         {/* Inventory Table */}
         <section className='overflow-x-auto rounded-xl border border-[#6A8D73]'>
@@ -251,27 +186,13 @@ function App() {
                   return (
                     <th 
                       key={col.key}
-                      className={`px-4 py-3 text-left cursor-pointer select-none transition-all ${
-                        isStaged 
-                          ? 'bg-[#f2cc41] shadow-[inset_0_-3px_0_0_#36513f]' 
-                          : 'hover:bg-[#f2cc41]/50'
-                      }`}
-                      onClick={() => {
-                          if (!isSorting) {
-                            setStagedColumn(col.key)
-                            toggleDirection()
-                          }
-                        }
-                      }
+                      className={`px-4 py-3 text-left cursor-pointer select-none transition-all ${isStaged ? 'bg-[#f2cc41] shadow-[inset_0_-3px_0_0_#36513f]' : 'hover:bg-[#f2cc41]/50'}`}
+                      onClick={() => {if (!isSorting) { setStagedColumn(col.key); toggleDirection();}}}
                     >
                       <div className="flex items-center gap-1">
                         <span className="font-bold">{col.label}</span>
                         <span className="text-sm">
-                          {isStaged ? (
-                            sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
-                          ) : (
-                            <span className="opacity-20"> ↕</span>
-                          )}
+                          {isStaged ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : (<span className="opacity-20"> ↕</span>)}
                         </span>
                       </div>
                     </th>
@@ -282,29 +203,15 @@ function App() {
             <tbody>
               {items.map((item, index) => {
                 const isHighlighted = activeIndices.includes(index);
-
                 return (
-                  <tr
-                    key={item.id}
-                    className={`border-t border-[#edf3ef] transition-all duration-300 ${isHighlighted
-                        ? 'bg-[#F9DB6D]/40 ring-2 ring-inset ring-[#F9DB6D]'
-                        : 'hover:bg-[#f7fbf8]'
-                      }`}
-                  >
-                    <td className={`px-4 py-3 font-mono text-xs ${isHighlighted ? 'font-bold text-[#36513f]' : 'text-gray-400'}`}>
-                      {item.id}
-                    </td>
+                  <tr key={item.id} className={`border-t border-[#edf3ef] transition-all duration-300 ${isHighlighted ? 'bg-[#F9DB6D]/40 ring-2 ring-inset ring-[#F9DB6D]' : 'hover:bg-[#f7fbf8]'}`}>
+                    <td className={`px-4 py-3 font-mono text-xs ${isHighlighted ? 'font-bold text-[#36513f]' : 'text-gray-400'}`}>{item.id}</td>
                     <td className="px-4 py-3 font-semibold text-[#243c2f]">{item.name}</td>
                     <td className="px-4 py-3 text-gray-500">{item.category}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded px-2 py-0.5 text-[11px] font-bold transition-colors ${isHighlighted ? 'bg-[#6A8D73] text-white' : 'bg-[#dbe6df] text-[#36513f]'
-                        }`}>
-                        {item.stock}
-                      </span>
+                      <span className={`rounded px-2 py-0.5 text-[11px] font-bold transition-colors ${isHighlighted ? 'bg-[#6A8D73] text-white' : 'bg-[#dbe6df] text-[#36513f]'}`}>{item.stock}</span>
                     </td>
-                    <td className={`px-4 py-3 font-bold transition-transform ${isHighlighted ? 'scale-110 text-[#6A8D73]' : ''}`}>
-                      ₱{item.price.toFixed(2)}
-                    </td>
+                    <td className={`px-4 py-3 font-bold transition-transform ${isHighlighted ? 'scale-110 text-[#6A8D73]' : ''}`}>₱{item.price.toFixed(2)}</td>
                   </tr>
                 );
               })}
